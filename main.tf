@@ -12,7 +12,7 @@ provider "digitalocean" {
 }
 
 data "digitalocean_ssh_key" "default" {
-  name = "ghadi.saab@etu"
+  name = "github-actions"
 }
 
 resource "digitalocean_droplet" "monitoring" {
