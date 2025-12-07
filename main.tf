@@ -69,4 +69,5 @@ resource "digitalocean_firewall" "monitoring" {
 
 output "server_ip" {
   value = digitalocean_droplet.monitoring.ipv4_address
+  description = "The public IP address of the server"
 }

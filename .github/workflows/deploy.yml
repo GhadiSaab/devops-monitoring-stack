@@ -34,9 +34,8 @@ jobs:
         TF_VAR_do_token: ${{ secrets.DO_TOKEN }}
     
     - name: Get Server IP
-      id: get_ip
-      run: |
-        echo "SERVER_IP=$(terraform output -raw server_ip)" >> $GITHUB_OUTPUT
+      id: get_ip  
+      run: echo "SERVER_IP=$(terraform output -raw server_ip)" >> $GITHUB_OUTPUT
     
     - name: Wait for server to be ready
       run: sleep 60
