@@ -36,12 +36,34 @@ terraform init
 terraform apply
 ```
 
-## Stack Deployment
+## Full Deployment
 
-After infrastructure is provisioned:
+1. **Provision infrastructure:**
 ```bash
+terraform init
+terraform apply
+```
+
+2. **Deploy monitoring stack:**
+```bash
+# Copy stack to server
+scp -r monitoring-stack/ root@SERVER_IP:~/
+
+# SSH into server
 ssh root@SERVER_IP
-# Install docker, deploy monitoring stack
+
+# Install docker
+apt update && apt install -y docker.io docker-compose-plugin
+
+# Deploy
+cd monitoring-stack
+docker compose up -d
+```
+
+3. **Access services:**
+- Grafana: http://SERVER_IP:3000
+- Prometheus: http://SERVER_IP:9090
+- App: http://SERVER_IP:3001
 ```
 
 ## Project Structure
