@@ -1,0 +1,74 @@
+name: Deploy Infrastructure and App
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.9.8
+    
+    - name: Terraform Init
+      run: terraform init
+      env:
+        TF_VAR_do_token: ${{ secrets.DO_TOKEN }}
+    
+    - name: Terraform Plan
+      run: terraform plan
+      env:
+        TF_VAR_do_token: ${{ secrets.DO_TOKEN }}
+    
+    - name: Terraform Apply
+      run: terraform apply -auto-approve
+      env:
+        TF_VAR_do_token: ${{ secrets.DO_TOKEN }}
+    
+    - name: Get Server IP
+      id: get_ip
+      run: |
+        echo "SERVER_IP=$(terraform output -raw server_ip)" >> $GITHUB_OUTPUT
+    
+    - name: Wait for server to be ready
+      run: sleep 60
+    
+    - name: Setup SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ steps.get_ip.outputs.SERVER_IP }} >> ~/.ssh/known_hosts
+    
+    - name: Install Docker on server
+      run: |
+        ssh -o StrictHostKeyChecking=no root@${{ steps.get_ip.outputs.SERVER_IP }} << 'EOF'
+          apt update
+          apt install -y docker.io docker-compose-plugin
+          systemctl start docker
+          systemctl enable docker
+        EOF
+    
+    - name: Deploy monitoring stack
+      run: |
+        scp -r monitoring-stack root@${{ steps.get_ip.outputs.SERVER_IP }}:~/
+        ssh root@${{ steps.get_ip.outputs.SERVER_IP }} << 'EOF'
+          cd ~/monitoring-stack
+          docker compose down || true
+          docker compose up -d
+        EOF
+    
+    - name: Display URLs
+      run: |
+        echo "Deployment complete!"
+        echo "Grafana: http://${{ steps.get_ip.outputs.SERVER_IP }}:3000"
+        echo "Prometheus: http://${{ steps.get_ip.outputs.SERVER_IP }}:9090"
+        echo "App: http://${{ steps.get_ip.outputs.SERVER_IP }}:3001"
