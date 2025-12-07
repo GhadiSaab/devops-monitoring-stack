@@ -32,10 +32,14 @@ jobs:
       run: terraform apply -auto-approve
       env:
         TF_VAR_do_token: ${{ secrets.DO_TOKEN }}
+        TF_LOG: ""
     
     - name: Get Server IP
-      id: get_ip  
-      run: echo "SERVER_IP=$(terraform output -raw server_ip)" >> $GITHUB_OUTPUT
+      id: get_ip
+      run: |
+        SERVER_IP=$(terraform output -raw server_ip 2>/dev/null)
+        echo "SERVER_IP=${SERVER_IP}" >> $GITHUB_OUTPUT
+        echo "Extracted IP: ${SERVER_IP}"
     
     - name: Wait for server to be ready
       run: sleep 60
