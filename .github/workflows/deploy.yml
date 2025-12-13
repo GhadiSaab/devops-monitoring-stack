@@ -25,6 +25,14 @@ jobs:
       env:
         TF_VAR_do_token: ${{ secrets.DO_TOKEN }}
     
+    - name: Cleanup existing resources
+      run: |
+        echo "Cleaning up any existing resources from previous failed runs..."
+        terraform destroy -auto-approve || echo "No existing resources to clean"
+      env:
+        TF_VAR_do_token: ${{ secrets.DO_TOKEN }}
+      continue-on-error: true
+    
     - name: Terraform Plan
       run: terraform plan
       env:
@@ -35,10 +43,8 @@ jobs:
       run: terraform apply -auto-approve
       env:
         TF_VAR_do_token: ${{ secrets.DO_TOKEN }}
-      continue-on-error: true
     
     - name: Get Server IP
-      if: steps.apply.outcome == 'success'
       id: get_ip
       run: |
         SERVER_IP=$(terraform output -raw server_ip)
@@ -46,11 +52,9 @@ jobs:
         echo "Server IP is: ${SERVER_IP}"
     
     - name: Wait for server to be ready
-      if: steps.apply.outcome == 'success'
       run: sleep 60
     
     - name: Setup SSH key
-      if: steps.apply.outcome == 'success'
       run: |
         mkdir -p ~/.ssh
         echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 -d > ~/.ssh/id_rsa
@@ -58,7 +62,6 @@ jobs:
         ssh-keyscan -H ${{ steps.get_ip.outputs.SERVER_IP }} >> ~/.ssh/known_hosts
     
     - name: Install Docker on server
-      if: steps.apply.outcome == 'success'
       id: install_docker
       run: |
         ssh -o StrictHostKeyChecking=no root@${{ steps.get_ip.outputs.SERVER_IP }} << 'EOF'
@@ -85,10 +88,8 @@ jobs:
           docker --version
           docker compose version
         EOF
-      continue-on-error: true
     
     - name: Deploy monitoring stack
-      if: steps.install_docker.outcome == 'success'
       id: deploy
       run: |
         scp -r monitoring-stack root@${{ steps.get_ip.outputs.SERVER_IP }}:~/
@@ -97,7 +98,6 @@ jobs:
           docker compose down || true
           docker compose up -d
         EOF
-      continue-on-error: true
     
     - name: Display URLs
       if: steps.deploy.outcome == 'success'
@@ -108,9 +108,9 @@ jobs:
         echo "App: http://${{ steps.get_ip.outputs.SERVER_IP }}:3001"
     
     - name: Cleanup on failure
-      if: failure() && steps.apply.outcome == 'success'
+      if: failure()
       run: |
-        echo "Deployment failed - destroying infrastructure"
-        terraform destroy -auto-approve
+        echo "Workflow failed - cleaning up infrastructure"
+        terraform destroy -auto-approve || echo "Cleanup failed or nothing to destroy"
       env:
         TF_VAR_do_token: ${{ secrets.DO_TOKEN }}
