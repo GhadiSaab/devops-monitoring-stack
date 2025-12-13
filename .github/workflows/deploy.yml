@@ -90,8 +90,9 @@ jobs:
         echo "App: http://${{ steps.get_ip.outputs.SERVER_IP }}:3001"
     
     - name: Cleanup on failure
-      if: failure()
+      if: failure() && steps.apply.outcome == 'success'
       run: |
-        terraform destroy -auto-approve || true
+        echo "Deployment failed - destroying infrastructure"
+        terraform destroy -auto-approve
       env:
         TF_VAR_do_token: ${{ secrets.DO_TOKEN }}
