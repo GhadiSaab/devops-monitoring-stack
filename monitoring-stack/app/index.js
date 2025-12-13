@@ -1,5 +1,6 @@
 const express = require('express');
 const client = require('prom-client');
+const path = require('path');
 
 const app = express();
 const PORT = 3001;
@@ -29,17 +30,20 @@ register.registerMetric(requestDuration);
 // middleware to track requests
 app.use((req, res, next) => {
   const start = Date.now();
-  
+
   res.on('finish', () => {
     const duration = (Date.now() - start) / 1000;
     requestCounter.inc({ method: req.method, route: req.path, status: res.statusCode });
     requestDuration.observe({ method: req.method, route: req.path }, duration);
-    
+
     console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - ${res.statusCode} - ${duration}s`);
   });
-  
+
   next();
 });
+
+// serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
 
 // metrics endpoint for prometheus
 app.get('/metrics', async (req, res) => {
@@ -47,9 +51,9 @@ app.get('/metrics', async (req, res) => {
   res.end(await register.metrics());
 });
 
-// sample endpoints
+// landing page - serve index.html
 app.get('/', (req, res) => {
-  res.json({ message: 'hello from monitoring app' });
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.get('/health', (req, res) => {
