@@ -25,6 +25,14 @@ jobs:
       env:
         TF_VAR_do_token: ${{ secrets.DO_TOKEN }}
     
+    - name: Destroy existing infrastructure
+      run: |
+        echo "Destroying all existing resources..."
+        terraform destroy -auto-approve || echo "Nothing to destroy"
+      env:
+        TF_VAR_do_token: ${{ secrets.DO_TOKEN }}
+      continue-on-error: true
+    
     - name: Terraform Plan
       run: terraform plan
       env:
@@ -44,7 +52,7 @@ jobs:
         echo "Server IP is: ${SERVER_IP}"
     
     - name: Wait for server to be ready
-      run: sleep 30
+      run: sleep 60
     
     - name: Setup SSH key
       run: |
@@ -57,31 +65,24 @@ jobs:
       id: install_docker
       run: |
         ssh -o StrictHostKeyChecking=no root@${{ steps.get_ip.outputs.SERVER_IP }} << 'EOF'
-          # check if docker is already installed
-          if ! command -v docker &> /dev/null; then
-            echo "Docker not found - installing..."
-            
-            # install dependencies
-            apt update
-            apt install -y ca-certificates curl gnupg
-            
-            # add docker's official GPG key
-            install -m 0755 -d /etc/apt/keyrings
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-            chmod a+r /etc/apt/keyrings/docker.gpg
-            
-            # add docker repository
-            echo \
-              "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-              $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-              tee /etc/apt/sources.list.d/docker.list > /dev/null
-            
-            # install docker
-            apt update
-            apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-          else
-            echo "Docker already installed - skipping installation"
-          fi
+          # install dependencies
+          apt update
+          apt install -y ca-certificates curl gnupg
+          
+          # add docker's official GPG key
+          install -m 0755 -d /etc/apt/keyrings
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+          chmod a+r /etc/apt/keyrings/docker.gpg
+          
+          # add docker repository
+          echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+            $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+            tee /etc/apt/sources.list.d/docker.list > /dev/null
+          
+          # install docker
+          apt update
+          apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
           
           # verify
           docker --version
