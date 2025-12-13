@@ -62,10 +62,28 @@ jobs:
       id: install_docker
       run: |
         ssh -o StrictHostKeyChecking=no root@${{ steps.get_ip.outputs.SERVER_IP }} << 'EOF'
+          # install dependencies
           apt update
-          apt install -y docker.io docker-compose-plugin
-          systemctl start docker
-          systemctl enable docker
+          apt install -y ca-certificates curl gnupg
+          
+          # add docker's official GPG key
+          install -m 0755 -d /etc/apt/keyrings
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+          chmod a+r /etc/apt/keyrings/docker.gpg
+          
+          # add docker repository
+          echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+            $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+            tee /etc/apt/sources.list.d/docker.list > /dev/null
+          
+          # install docker
+          apt update
+          apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+          
+          # verify
+          docker --version
+          docker compose version
         EOF
       continue-on-error: true
     
