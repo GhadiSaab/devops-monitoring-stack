@@ -53,7 +53,7 @@ jobs:
       if: steps.apply.outcome == 'success'
       run: |
         mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 -d > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H ${{ steps.get_ip.outputs.SERVER_IP }} >> ~/.ssh/known_hosts
     
